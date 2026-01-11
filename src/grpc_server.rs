@@ -2,36 +2,36 @@ use sqlx::SqlitePool;
 use tonic::{Request, Response, Status};
 
 // Include the generated proto code
-pub mod todo {
-    tonic::include_proto!("todo");
+pub mod task {
+    tonic::include_proto!("task");
 
-    pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("todo_descriptor");
+    pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("task_descriptor");
 }
 
-use todo::{
-    todo_service_server::{TodoService, TodoServiceServer},
-    CreateTodoRequest, DeleteTodoRequest, DeleteTodoResponse, GetTodoRequest, ListTodosRequest,
-    ListTodosResponse, Todo, UpdateTodoRequest,
+use task::{
+    task_service_server::{TaskService, TaskServiceServer},
+    CreateTaskRequest, DeleteTaskRequest, DeleteTaskResponse, GetTaskRequest, ListTasksRequest,
+    ListTasksResponse, Task, UpdateTaskRequest,
 };
 
 use crate::db;
 
-pub struct TodoServiceImpl {
+pub struct TaskServiceImpl {
     pool: SqlitePool,
 }
 
-impl TodoServiceImpl {
+impl TaskServiceImpl {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }
 
-    pub fn into_service(self) -> TodoServiceServer<Self> {
-        TodoServiceServer::new(self)
+    pub fn into_service(self) -> TaskServiceServer<Self> {
+        TaskServiceServer::new(self)
     }
 }
 
-fn model_to_proto(model: db::TodoModel) -> Todo {
-    Todo {
+fn model_to_proto(model: db::TaskModel) -> Task {
+    Task {
         id: model.id,
         title: model.title,
         description: model.description,
@@ -40,50 +40,50 @@ fn model_to_proto(model: db::TodoModel) -> Todo {
 }
 
 #[tonic::async_trait]
-impl TodoService for TodoServiceImpl {
-    async fn create_todo(
+impl TaskService for TaskServiceImpl {
+    async fn create_task(
         &self,
-        request: Request<CreateTodoRequest>,
-    ) -> Result<Response<Todo>, Status> {
+        request: Request<CreateTaskRequest>,
+    ) -> Result<Response<Task>, Status> {
         let req = request.into_inner();
 
-        let todo = db::create_todo(&self.pool, &req.title, &req.description)
+        let task = db::create_task(&self.pool, &req.title, &req.description)
             .await
-            .map_err(|e| Status::internal(format!("Failed to create todo: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to create task: {}", e)))?;
 
-        Ok(Response::new(model_to_proto(todo)))
+        Ok(Response::new(model_to_proto(task)))
     }
 
-    async fn get_todo(&self, request: Request<GetTodoRequest>) -> Result<Response<Todo>, Status> {
+    async fn get_task(&self, request: Request<GetTaskRequest>) -> Result<Response<Task>, Status> {
         let req = request.into_inner();
 
-        let todo = db::get_todo(&self.pool, req.id)
+        let task = db::get_task(&self.pool, req.id)
             .await
-            .map_err(|e| Status::not_found(format!("Todo not found: {}", e)))?;
+            .map_err(|e| Status::not_found(format!("Task not found: {}", e)))?;
 
-        Ok(Response::new(model_to_proto(todo)))
+        Ok(Response::new(model_to_proto(task)))
     }
 
-    async fn list_todos(
+    async fn list_tasks(
         &self,
-        _request: Request<ListTodosRequest>,
-    ) -> Result<Response<ListTodosResponse>, Status> {
-        let todos = db::list_todos(&self.pool)
+        _request: Request<ListTasksRequest>,
+    ) -> Result<Response<ListTasksResponse>, Status> {
+        let tasks = db::list_tasks(&self.pool)
             .await
-            .map_err(|e| Status::internal(format!("Failed to list todos: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to list tasks: {}", e)))?;
 
-        let todos = todos.into_iter().map(model_to_proto).collect();
+        let tasks = tasks.into_iter().map(model_to_proto).collect();
 
-        Ok(Response::new(ListTodosResponse { todos }))
+        Ok(Response::new(ListTasksResponse { tasks }))
     }
 
-    async fn update_todo(
+    async fn update_task(
         &self,
-        request: Request<UpdateTodoRequest>,
-    ) -> Result<Response<Todo>, Status> {
+        request: Request<UpdateTaskRequest>,
+    ) -> Result<Response<Task>, Status> {
         let req = request.into_inner();
 
-        let todo = db::update_todo(
+        let task = db::update_task(
             &self.pool,
             req.id,
             req.title.as_deref(),
@@ -91,21 +91,21 @@ impl TodoService for TodoServiceImpl {
             req.completed,
         )
         .await
-        .map_err(|e| Status::internal(format!("Failed to update todo: {}", e)))?;
+        .map_err(|e| Status::internal(format!("Failed to update task: {}", e)))?;
 
-        Ok(Response::new(model_to_proto(todo)))
+        Ok(Response::new(model_to_proto(task)))
     }
 
-    async fn delete_todo(
+    async fn delete_task(
         &self,
-        request: Request<DeleteTodoRequest>,
-    ) -> Result<Response<DeleteTodoResponse>, Status> {
+        request: Request<DeleteTaskRequest>,
+    ) -> Result<Response<DeleteTaskResponse>, Status> {
         let req = request.into_inner();
 
-        let success = db::delete_todo(&self.pool, req.id)
+        let success = db::delete_task(&self.pool, req.id)
             .await
-            .map_err(|e| Status::internal(format!("Failed to delete todo: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to delete task: {}", e)))?;
 
-        Ok(Response::new(DeleteTodoResponse { success }))
+        Ok(Response::new(DeleteTaskResponse { success }))
     }
 }

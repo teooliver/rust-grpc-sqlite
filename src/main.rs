@@ -19,16 +19,16 @@ async fn main() -> Result<()> {
     let grpc_addr = "[::]:50051".parse()?;
     let grpc_handle = tokio::spawn(async move {
         println!("Starting gRPC server on {}", grpc_addr);
-        let todo_service = grpc_server::TodoServiceImpl::new(grpc_pool).into_service();
+        let task_service = grpc_server::TaskServiceImpl::new(grpc_pool).into_service();
 
         // Set up reflection service
         let reflection_service = tonic_reflection::server::Builder::configure()
-            .register_encoded_file_descriptor_set(grpc_server::todo::FILE_DESCRIPTOR_SET)
+            .register_encoded_file_descriptor_set(grpc_server::task::FILE_DESCRIPTOR_SET)
             .build_v1()
             .expect("Failed to build reflection service");
 
         Server::builder()
-            .add_service(todo_service)
+            .add_service(task_service)
             .add_service(reflection_service)
             .serve(grpc_addr)
             .await

@@ -16,7 +16,7 @@ pub struct AppState {
 }
 
 #[derive(Serialize)]
-struct TodoResponse {
+struct TaskResponse {
     id: i64,
     title: String,
     description: String,
@@ -24,20 +24,20 @@ struct TodoResponse {
 }
 
 #[derive(Deserialize)]
-pub struct CreateTodoRequest {
+pub struct CreateTaskRequest {
     title: String,
     description: String,
 }
 
 #[derive(Deserialize)]
-pub struct UpdateTodoRequest {
+pub struct UpdateTaskRequest {
     title: Option<String>,
     description: Option<String>,
     completed: Option<bool>,
 }
 
-fn model_to_response(model: db::TodoModel) -> TodoResponse {
-    TodoResponse {
+fn model_to_response(model: db::TaskModel) -> TaskResponse {
+    TaskResponse {
         id: model.id,
         title: model.title,
         description: model.description,
@@ -49,42 +49,42 @@ pub fn create_router(pool: SqlitePool) -> Router {
     let state = AppState { pool };
 
     Router::new()
-        .route("/todos", post(create_todo))
-        .route("/todos", get(list_todos))
-        .route("/todos/:id", get(get_todo))
-        .route("/todos/:id", put(update_todo))
-        .route("/todos/:id", delete(delete_todo))
+        .route("/tasks", post(create_task))
+        .route("/tasks", get(list_tasks))
+        .route("/tasks/:id", get(get_task))
+        .route("/tasks/:id", put(update_task))
+        .route("/tasks/:id", delete(delete_task))
         .with_state(state)
 }
 
-async fn create_todo(
+async fn create_task(
     State(state): State<AppState>,
-    Json(payload): Json<CreateTodoRequest>,
-) -> Result<Json<TodoResponse>, AppError> {
-    let todo = db::create_todo(&state.pool, &payload.title, &payload.description).await?;
-    Ok(Json(model_to_response(todo)))
+    Json(payload): Json<CreateTaskRequest>,
+) -> Result<Json<TaskResponse>, AppError> {
+    let task = db::create_task(&state.pool, &payload.title, &payload.description).await?;
+    Ok(Json(model_to_response(task)))
 }
 
-async fn get_todo(
-    State(state): State<AppState>,
-    Path(id): Path<i64>,
-) -> Result<Json<TodoResponse>, AppError> {
-    let todo = db::get_todo(&state.pool, id).await?;
-    Ok(Json(model_to_response(todo)))
-}
-
-async fn list_todos(State(state): State<AppState>) -> Result<Json<Vec<TodoResponse>>, AppError> {
-    let todos = db::list_todos(&state.pool).await?;
-    let todos = todos.into_iter().map(model_to_response).collect();
-    Ok(Json(todos))
-}
-
-async fn update_todo(
+async fn get_task(
     State(state): State<AppState>,
     Path(id): Path<i64>,
-    Json(payload): Json<UpdateTodoRequest>,
-) -> Result<Json<TodoResponse>, AppError> {
-    let todo = db::update_todo(
+) -> Result<Json<TaskResponse>, AppError> {
+    let task = db::get_task(&state.pool, id).await?;
+    Ok(Json(model_to_response(task)))
+}
+
+async fn list_tasks(State(state): State<AppState>) -> Result<Json<Vec<TaskResponse>>, AppError> {
+    let tasks = db::list_tasks(&state.pool).await?;
+    let tasks = tasks.into_iter().map(model_to_response).collect();
+    Ok(Json(tasks))
+}
+
+async fn update_task(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(payload): Json<UpdateTaskRequest>,
+) -> Result<Json<TaskResponse>, AppError> {
+    let task = db::update_task(
         &state.pool,
         id,
         payload.title.as_deref(),
@@ -92,14 +92,14 @@ async fn update_todo(
         payload.completed,
     )
     .await?;
-    Ok(Json(model_to_response(todo)))
+    Ok(Json(model_to_response(task)))
 }
 
-async fn delete_todo(
+async fn delete_task(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
-    let success = db::delete_todo(&state.pool, id).await?;
+    let success = db::delete_task(&state.pool, id).await?;
     if success {
         Ok(StatusCode::NO_CONTENT)
     } else {
@@ -129,10 +129,10 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             AppError::Database(sqlx::Error::RowNotFound) => {
-                (StatusCode::NOT_FOUND, "Todo not found")
+                (StatusCode::NOT_FOUND, "Task not found")
             }
             AppError::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error"),
-            AppError::NotFound => (StatusCode::NOT_FOUND, "Todo not found"),
+            AppError::NotFound => (StatusCode::NOT_FOUND, "Task not found"),
         };
 
         (status, message).into_response()

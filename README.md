@@ -1,8 +1,9 @@
-# gRPC + SQLite + Axum Todo App
+# gRPC + SQLite + Axum Task App
 
-A simple todo list application demonstrating:
+A simple task list application demonstrating:
 - **gRPC** with [tonic](https://github.com/hyperium/tonic)
 - **SQLite** with [sqlx](https://github.com/launchbadge/sqlx)
+
 - **REST API** with [axum](https://github.com/tokio-rs/axum)
 
 ## Project Structure
@@ -10,7 +11,7 @@ A simple todo list application demonstrating:
 ```
 .
 ├── proto/
-│   └── todo.proto          # Protocol buffer definitions
+│   └── task.proto          # Protocol buffer definitions
 ├── src/
 │   ├── main.rs            # Entry point, runs both servers
 │   ├── db.rs              # SQLite database operations
@@ -30,37 +31,37 @@ This starts two servers:
 - **gRPC server**: `127.0.0.1:50051`
 - **REST server**: `127.0.0.1:3000`
 
-The SQLite database file `todos.db` will be created in the project root.
+The SQLite database file `tasks.db` will be created in the project root.
 
 ## REST API Examples
 
-### Create a todo
+### Create a task
 ```bash
-curl -X POST http://127.0.0.1:3000/todos \
+curl -X POST http://127.0.0.1:3000/tasks \
   -H "Content-Type: application/json" \
   -d '{"title": "Learn Rust", "description": "Study tonic, sqlx, and axum"}'
 ```
 
-### List all todos
+### List all tasks
 ```bash
-curl http://127.0.0.1:3000/todos
+curl http://127.0.0.1:3000/tasks
 ```
 
-### Get a specific todo
+### Get a specific task
 ```bash
-curl http://127.0.0.1:3000/todos/1
+curl http://127.0.0.1:3000/tasks/1
 ```
 
-### Update a todo
+### Update a task
 ```bash
-curl -X PUT http://127.0.0.1:3000/todos/1 \
+curl -X PUT http://127.0.0.1:3000/tasks/1 \
   -H "Content-Type: application/json" \
   -d '{"completed": true}'
 ```
 
-### Delete a todo
+### Delete a task
 ```bash
-curl -X DELETE http://127.0.0.1:3000/todos/1
+curl -X DELETE http://127.0.0.1:3000/tasks/1
 ```
 
 ## gRPC Examples
@@ -86,34 +87,34 @@ For command-line testing, use grpcurl:
 grpcurl -plaintext 127.0.0.1:50051 list
 ```
 
-### Create a todo
+### Create a task
 ```bash
 grpcurl -plaintext -d '{"title": "Learn gRPC", "description": "Master tonic"}' \
-  127.0.0.1:50051 todo.TodoService/CreateTodo
+  127.0.0.1:50051 task.TaskService/CreateTask
 ```
 
-### List all todos
+### List all tasks
 ```bash
 grpcurl -plaintext -d '{}' \
-  127.0.0.1:50051 todo.TodoService/ListTodos
+  127.0.0.1:50051 task.TaskService/ListTasks
 ```
 
-### Get a todo
+### Get a task
 ```bash
 grpcurl -plaintext -d '{"id": 1}' \
-  127.0.0.1:50051 todo.TodoService/GetTodo
+  127.0.0.1:50051 task.TaskService/GetTask
 ```
 
-### Update a todo
+### Update a task
 ```bash
 grpcurl -plaintext -d '{"id": 1, "completed": true}' \
-  127.0.0.1:50051 todo.TodoService/UpdateTodo
+  127.0.0.1:50051 task.TaskService/UpdateTask
 ```
 
-### Delete a todo
+### Delete a task
 ```bash
 grpcurl -plaintext -d '{"id": 1}' \
-  127.0.0.1:50051 todo.TodoService/DeleteTodo
+  127.0.0.1:50051 task.TaskService/DeleteTask
 ```
 
 ## Key Features
@@ -143,7 +144,7 @@ grpcurl -plaintext -d '{"id": 1}' \
 3. **REST API** (`src/rest_server.rs`): HTTP handlers using axum extractors
 4. **Main** (`src/main.rs`): Runs both servers concurrently using tokio
 
-Both servers share the same SQLite database, so todos created via REST are visible via gRPC and vice versa.
+Both servers share the same SQLite database, so tasks created via REST are visible via gRPC and vice versa.
 
 ## Dependencies
 

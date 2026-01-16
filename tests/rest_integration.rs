@@ -9,8 +9,9 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_create_task_rest() {
-    let pool = common::setup_test_pool().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -45,8 +46,9 @@ async fn test_create_task_rest() {
 
 #[tokio::test]
 async fn test_get_task_rest() {
-    let pool = common::setup_test_pool_with_data().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository_with_data().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -74,8 +76,9 @@ async fn test_get_task_rest() {
 
 #[tokio::test]
 async fn test_get_task_not_found_rest() {
-    let pool = common::setup_test_pool().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -101,8 +104,9 @@ async fn test_get_task_not_found_rest() {
 
 #[tokio::test]
 async fn test_list_tasks_rest() {
-    let pool = common::setup_test_pool_with_data().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository_with_data().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -129,8 +133,9 @@ async fn test_list_tasks_rest() {
 
 #[tokio::test]
 async fn test_list_tasks_empty_rest() {
-    let pool = common::setup_test_pool().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -155,8 +160,9 @@ async fn test_list_tasks_empty_rest() {
 
 #[tokio::test]
 async fn test_update_task_rest() {
-    let pool = common::setup_test_pool_with_data().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository_with_data().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -192,8 +198,9 @@ async fn test_update_task_rest() {
 
 #[tokio::test]
 async fn test_update_task_partial_rest() {
-    let pool = common::setup_test_pool_with_data().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository_with_data().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -227,8 +234,9 @@ async fn test_update_task_partial_rest() {
 
 #[tokio::test]
 async fn test_update_task_not_found_rest() {
-    let pool = common::setup_test_pool().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
@@ -252,9 +260,13 @@ async fn test_update_task_not_found_rest() {
 
 #[tokio::test]
 async fn test_delete_task_rest() {
-    let pool = common::setup_test_pool_with_data().await;
+    let task_repository = common::setup_test_repository_with_data().await;
+    let user_repository = common::setup_test_user_repository().await;
 
-    let app = rust_grpc_sqlite::rest_server::create_router(pool.clone());
+    let app = rust_grpc_sqlite::rest_server::create_router(
+        task_repository.clone(),
+        user_repository.clone(),
+    );
     let response = app
         .oneshot(
             Request::builder()
@@ -268,7 +280,10 @@ async fn test_delete_task_rest() {
 
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
-    let app2 = rust_grpc_sqlite::rest_server::create_router(pool.clone());
+    let app2 = rust_grpc_sqlite::rest_server::create_router(
+        task_repository.clone(),
+        user_repository.clone(),
+    );
     let response2 = app2
         .oneshot(
             Request::builder()
@@ -285,14 +300,315 @@ async fn test_delete_task_rest() {
 
 #[tokio::test]
 async fn test_delete_task_not_found_rest() {
-    let pool = common::setup_test_pool().await;
-    let app = rust_grpc_sqlite::rest_server::create_router(pool);
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
 
     let response = app
         .oneshot(
             Request::builder()
                 .method("DELETE")
                 .uri("/tasks/999")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+// User REST tests
+
+#[tokio::test]
+async fn test_create_user_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/users")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "John Doe",
+                        "email": "john@example.com"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let user: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(user["name"], "John Doe");
+    assert_eq!(user["email"], "john@example.com");
+    assert!(user["id"].as_i64().unwrap() > 0);
+}
+
+#[tokio::test]
+async fn test_get_user_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository_with_data().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/users/1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let user: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(user["id"], 1);
+    assert_eq!(user["name"], "John Doe");
+    assert_eq!(user["email"], "john@example.com");
+}
+
+#[tokio::test]
+async fn test_get_user_not_found_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/users/999")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_list_users_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository_with_data().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/users")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let users: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(users.len(), 2);
+    assert_eq!(users[0]["id"], 2);
+    assert_eq!(users[1]["id"], 1);
+}
+
+#[tokio::test]
+async fn test_list_users_empty_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/users")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let users: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(users.len(), 0);
+}
+
+#[tokio::test]
+async fn test_update_user_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository_with_data().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/users/1")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "Updated Name",
+                        "email": "updated@example.com"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let user: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(user["id"], 1);
+    assert_eq!(user["name"], "Updated Name");
+    assert_eq!(user["email"], "updated@example.com");
+}
+
+#[tokio::test]
+async fn test_update_user_partial_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository_with_data().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/users/1")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "New Name"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let user: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(user["id"], 1);
+    assert_eq!(user["name"], "New Name");
+    assert_eq!(user["email"], "john@example.com");
+}
+
+#[tokio::test]
+async fn test_update_user_not_found_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/users/999")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "Updated"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_delete_user_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository_with_data().await;
+
+    let app = rust_grpc_sqlite::rest_server::create_router(
+        task_repository.clone(),
+        user_repository.clone(),
+    );
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/users/1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+    let app2 = rust_grpc_sqlite::rest_server::create_router(
+        task_repository.clone(),
+        user_repository.clone(),
+    );
+    let response2 = app2
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/users/1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response2.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_delete_user_not_found_rest() {
+    let task_repository = common::setup_test_repository().await;
+    let user_repository = common::setup_test_user_repository().await;
+    let app = rust_grpc_sqlite::rest_server::create_router(task_repository, user_repository);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/users/999")
                 .body(Body::empty())
                 .unwrap(),
         )

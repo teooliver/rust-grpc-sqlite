@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
 // Include the generated proto code
@@ -8,21 +8,34 @@ pub mod task {
     pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("task_descriptor");
 }
 
+pub mod user {
+    tonic::include_proto!("user");
+
+    pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("user_descriptor");
+}
+
 use task::{
     task_service_server::{TaskService, TaskServiceServer},
     CreateTaskRequest, DeleteTaskRequest, DeleteTaskResponse, GetTaskRequest, ListTasksRequest,
     ListTasksResponse, Task, UpdateTaskRequest,
 };
 
+use user::{
+    user_service_server::{UserService, UserServiceServer},
+    CreateUserRequest, DeleteUserRequest, DeleteUserResponse, GetUserRequest, ListUsersRequest,
+    ListUsersResponse, UpdateUserRequest, User,
+};
+
 use crate::db;
+use crate::repository::{TaskRepository, UserRepository};
 
 pub struct TaskServiceImpl {
-    pool: SqlitePool,
+    repository: Arc<dyn TaskRepository>,
 }
 
 impl TaskServiceImpl {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub fn new(repository: Arc<dyn TaskRepository>) -> Self {
+        Self { repository }
     }
 
     pub fn into_service(self) -> TaskServiceServer<Self> {
@@ -47,7 +60,9 @@ impl TaskService for TaskServiceImpl {
     ) -> Result<Response<Task>, Status> {
         let req = request.into_inner();
 
-        let task = db::create_task(&self.pool, &req.title, &req.description)
+        let task = self
+            .repository
+            .create(&req.title, &req.description)
             .await
             .map_err(|e| Status::internal(format!("Failed to create task: {}", e)))?;
 
@@ -57,7 +72,9 @@ impl TaskService for TaskServiceImpl {
     async fn get_task(&self, request: Request<GetTaskRequest>) -> Result<Response<Task>, Status> {
         let req = request.into_inner();
 
-        let task = db::get_task(&self.pool, req.id)
+        let task = self
+            .repository
+            .get(req.id)
             .await
             .map_err(|e| Status::not_found(format!("Task not found: {}", e)))?;
 
@@ -68,7 +85,9 @@ impl TaskService for TaskServiceImpl {
         &self,
         _request: Request<ListTasksRequest>,
     ) -> Result<Response<ListTasksResponse>, Status> {
-        let tasks = db::list_tasks(&self.pool)
+        let tasks = self
+            .repository
+            .list()
             .await
             .map_err(|e| Status::internal(format!("Failed to list tasks: {}", e)))?;
 
@@ -83,15 +102,16 @@ impl TaskService for TaskServiceImpl {
     ) -> Result<Response<Task>, Status> {
         let req = request.into_inner();
 
-        let task = db::update_task(
-            &self.pool,
-            req.id,
-            req.title.as_deref(),
-            req.description.as_deref(),
-            req.completed,
-        )
-        .await
-        .map_err(|e| Status::internal(format!("Failed to update task: {}", e)))?;
+        let task = self
+            .repository
+            .update(
+                req.id,
+                req.title.as_deref(),
+                req.description.as_deref(),
+                req.completed,
+            )
+            .await
+            .map_err(|e| Status::internal(format!("Failed to update task: {}", e)))?;
 
         Ok(Response::new(model_to_proto(task)))
     }
@@ -102,10 +122,111 @@ impl TaskService for TaskServiceImpl {
     ) -> Result<Response<DeleteTaskResponse>, Status> {
         let req = request.into_inner();
 
-        let success = db::delete_task(&self.pool, req.id)
+        let success = self
+            .repository
+            .delete(req.id)
             .await
             .map_err(|e| Status::internal(format!("Failed to delete task: {}", e)))?;
 
         Ok(Response::new(DeleteTaskResponse { success }))
+    }
+}
+
+// User Service Implementation
+
+pub struct UserServiceImpl {
+    repository: Arc<dyn UserRepository>,
+}
+
+impl UserServiceImpl {
+    pub fn new(repository: Arc<dyn UserRepository>) -> Self {
+        Self { repository }
+    }
+
+    pub fn into_service(self) -> UserServiceServer<Self> {
+        UserServiceServer::new(self)
+    }
+}
+
+fn user_model_to_proto(model: db::UserModel) -> User {
+    User {
+        id: model.id,
+        name: model.name,
+        email: model.email,
+    }
+}
+
+#[tonic::async_trait]
+impl UserService for UserServiceImpl {
+    async fn create_user(
+        &self,
+        request: Request<CreateUserRequest>,
+    ) -> Result<Response<User>, Status> {
+        let req = request.into_inner();
+
+        let user = self
+            .repository
+            .create(&req.name, &req.email)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to create user: {}", e)))?;
+
+        Ok(Response::new(user_model_to_proto(user)))
+    }
+
+    async fn get_user(&self, request: Request<GetUserRequest>) -> Result<Response<User>, Status> {
+        let req = request.into_inner();
+
+        let user = self
+            .repository
+            .get(req.id)
+            .await
+            .map_err(|e| Status::not_found(format!("User not found: {}", e)))?;
+
+        Ok(Response::new(user_model_to_proto(user)))
+    }
+
+    async fn list_users(
+        &self,
+        _request: Request<ListUsersRequest>,
+    ) -> Result<Response<ListUsersResponse>, Status> {
+        let users = self
+            .repository
+            .list()
+            .await
+            .map_err(|e| Status::internal(format!("Failed to list users: {}", e)))?;
+
+        let users = users.into_iter().map(user_model_to_proto).collect();
+
+        Ok(Response::new(ListUsersResponse { users }))
+    }
+
+    async fn update_user(
+        &self,
+        request: Request<UpdateUserRequest>,
+    ) -> Result<Response<User>, Status> {
+        let req = request.into_inner();
+
+        let user = self
+            .repository
+            .update(req.id, req.name.as_deref(), req.email.as_deref())
+            .await
+            .map_err(|e| Status::internal(format!("Failed to update user: {}", e)))?;
+
+        Ok(Response::new(user_model_to_proto(user)))
+    }
+
+    async fn delete_user(
+        &self,
+        request: Request<DeleteUserRequest>,
+    ) -> Result<Response<DeleteUserResponse>, Status> {
+        let req = request.into_inner();
+
+        let success = self
+            .repository
+            .delete(req.id)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to delete user: {}", e)))?;
+
+        Ok(Response::new(DeleteUserResponse { success }))
     }
 }

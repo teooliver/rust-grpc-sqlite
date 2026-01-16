@@ -6,13 +6,15 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use std::sync::Arc;
 
 use crate::db;
+use crate::repository::{TaskRepository, UserRepository};
 
 #[derive(Clone)]
 pub struct AppState {
-    pool: SqlitePool,
+    task_repository: Arc<dyn TaskRepository>,
+    user_repository: Arc<dyn UserRepository>,
 }
 
 #[derive(Serialize)]
@@ -36,6 +38,27 @@ pub struct UpdateTaskRequest {
     completed: Option<bool>,
 }
 
+// User DTOs
+
+#[derive(Serialize)]
+struct UserResponse {
+    id: i64,
+    name: String,
+    email: String,
+}
+
+#[derive(Deserialize)]
+pub struct CreateUserRequest {
+    name: String,
+    email: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateUserRequest {
+    name: Option<String>,
+    email: Option<String>,
+}
+
 fn model_to_response(model: db::TaskModel) -> TaskResponse {
     TaskResponse {
         id: model.id,
@@ -45,8 +68,22 @@ fn model_to_response(model: db::TaskModel) -> TaskResponse {
     }
 }
 
-pub fn create_router(pool: SqlitePool) -> Router {
-    let state = AppState { pool };
+fn user_model_to_response(model: db::UserModel) -> UserResponse {
+    UserResponse {
+        id: model.id,
+        name: model.name,
+        email: model.email,
+    }
+}
+
+pub fn create_router(
+    task_repository: Arc<dyn TaskRepository>,
+    user_repository: Arc<dyn UserRepository>,
+) -> Router {
+    let state = AppState {
+        task_repository,
+        user_repository,
+    };
 
     Router::new()
         .route("/tasks", post(create_task))
@@ -54,6 +91,11 @@ pub fn create_router(pool: SqlitePool) -> Router {
         .route("/tasks/:id", get(get_task))
         .route("/tasks/:id", put(update_task))
         .route("/tasks/:id", delete(delete_task))
+        .route("/users", post(create_user))
+        .route("/users", get(list_users))
+        .route("/users/:id", get(get_user))
+        .route("/users/:id", put(update_user))
+        .route("/users/:id", delete(delete_user))
         .with_state(state)
 }
 
@@ -61,7 +103,10 @@ async fn create_task(
     State(state): State<AppState>,
     Json(payload): Json<CreateTaskRequest>,
 ) -> Result<Json<TaskResponse>, AppError> {
-    let task = db::create_task(&state.pool, &payload.title, &payload.description).await?;
+    let task = state
+        .task_repository
+        .create(&payload.title, &payload.description)
+        .await?;
     Ok(Json(model_to_response(task)))
 }
 
@@ -69,12 +114,12 @@ async fn get_task(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<Json<TaskResponse>, AppError> {
-    let task = db::get_task(&state.pool, id).await?;
+    let task = state.task_repository.get(id).await?;
     Ok(Json(model_to_response(task)))
 }
 
 async fn list_tasks(State(state): State<AppState>) -> Result<Json<Vec<TaskResponse>>, AppError> {
-    let tasks = db::list_tasks(&state.pool).await?;
+    let tasks = state.task_repository.list().await?;
     let tasks = tasks.into_iter().map(model_to_response).collect();
     Ok(Json(tasks))
 }
@@ -84,14 +129,15 @@ async fn update_task(
     Path(id): Path<i64>,
     Json(payload): Json<UpdateTaskRequest>,
 ) -> Result<Json<TaskResponse>, AppError> {
-    let task = db::update_task(
-        &state.pool,
-        id,
-        payload.title.as_deref(),
-        payload.description.as_deref(),
-        payload.completed,
-    )
-    .await?;
+    let task = state
+        .task_repository
+        .update(
+            id,
+            payload.title.as_deref(),
+            payload.description.as_deref(),
+            payload.completed,
+        )
+        .await?;
     Ok(Json(model_to_response(task)))
 }
 
@@ -99,7 +145,58 @@ async fn delete_task(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
-    let success = db::delete_task(&state.pool, id).await?;
+    let success = state.task_repository.delete(id).await?;
+    if success {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(AppError::NotFound)
+    }
+}
+
+// User handlers
+
+async fn create_user(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateUserRequest>,
+) -> Result<Json<UserResponse>, AppError> {
+    let user = state
+        .user_repository
+        .create(&payload.name, &payload.email)
+        .await?;
+    Ok(Json(user_model_to_response(user)))
+}
+
+async fn get_user(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<UserResponse>, AppError> {
+    let user = state.user_repository.get(id).await?;
+    Ok(Json(user_model_to_response(user)))
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<Json<Vec<UserResponse>>, AppError> {
+    let users = state.user_repository.list().await?;
+    let users = users.into_iter().map(user_model_to_response).collect();
+    Ok(Json(users))
+}
+
+async fn update_user(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(payload): Json<UpdateUserRequest>,
+) -> Result<Json<UserResponse>, AppError> {
+    let user = state
+        .user_repository
+        .update(id, payload.name.as_deref(), payload.email.as_deref())
+        .await?;
+    Ok(Json(user_model_to_response(user)))
+}
+
+async fn delete_user(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, AppError> {
+    let success = state.user_repository.delete(id).await?;
     if success {
         Ok(StatusCode::NO_CONTENT)
     } else {

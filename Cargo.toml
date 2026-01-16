@@ -1,7 +1,15 @@
 [package]
-name = "grpc-sqlite"
+name = "rust-grpc-sqlite"
 version = "0.1.0"
 edition = "2021"
+
+[lib]
+name = "rust_grpc_sqlite"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rust-grpc-sqlite"
+path = "src/main.rs"
 
 [dependencies]
 # gRPC with tonic
@@ -27,3 +35,10 @@ anyhow = "1.0"
 
 [build-dependencies]
 tonic-build = "0.12"
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+tower = "0.4"
+hyper = "1.0"
+http = "1.0"
+tokio-stream = "0.1"

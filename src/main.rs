@@ -1,6 +1,4 @@
-mod db;
-mod grpc_server;
-mod rest_server;
+use rust_grpc_sqlite::{db, grpc_server, rest_server};
 
 use anyhow::Result;
 use tonic::transport::Server;

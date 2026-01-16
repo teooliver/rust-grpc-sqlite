@@ -120,8 +120,16 @@ impl From<sqlx::Error> for AppError {
 }
 
 impl From<anyhow::Error> for AppError {
-    fn from(_err: anyhow::Error) -> Self {
-        AppError::Database(sqlx::Error::Protocol("Unknown error".to_string()))
+    fn from(err: anyhow::Error) -> Self {
+        // Try to downcast to sqlx::Error
+        if let Some(sqlx_err) = err.downcast_ref::<sqlx::Error>() {
+            match sqlx_err {
+                sqlx::Error::RowNotFound => AppError::NotFound,
+                _ => AppError::Database(sqlx::Error::Protocol(err.to_string())),
+            }
+        } else {
+            AppError::Database(sqlx::Error::Protocol(err.to_string()))
+        }
     }
 }
 

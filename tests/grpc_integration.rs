@@ -8,7 +8,7 @@ use rust_grpc_sqlite::grpc_server::user::{
     user_service_client::UserServiceClient, CreateUserRequest, DeleteUserRequest, GetUserRequest,
     ListUsersRequest, UpdateUserRequest,
 };
-use rust_grpc_sqlite::grpc_server::{TaskServiceImpl, UserServiceImpl};
+use rust_grpc_sqlite::service::{TaskServiceImpl, UserServiceImpl};
 use tonic::transport::{Channel, Server};
 
 async fn setup_grpc_client() -> (TaskServiceClient<Channel>, tokio::task::JoinHandle<()>) {

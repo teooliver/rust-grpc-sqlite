@@ -1,22 +1,23 @@
-# gRPC + SQLite + Axum Task App
+# gRPC + SQLite Task App
 
 A simple task list application demonstrating:
 - **gRPC** with [tonic](https://github.com/hyperium/tonic)
 - **SQLite** with [sqlx](https://github.com/launchbadge/sqlx)
-
-- **REST API** with [axum](https://github.com/tokio-rs/axum)
 
 ## Project Structure
 
 ```
 .
 ├── proto/
-│   └── task.proto          # Protocol buffer definitions
+│   ├── task.proto         # Task service Protocol Buffer definitions
+│   └── user.proto         # User service Protocol Buffer definitions
 ├── src/
-│   ├── main.rs            # Entry point, runs both servers
-│   ├── db.rs              # SQLite database operations
-│   ├── grpc_server.rs     # gRPC service implementation
-│   └── rest_server.rs     # REST API implementation
+│   ├── main.rs            # Entry point, runs gRPC server
+│   ├── db.rs              # SQLite database models and initialization
+│   ├── grpc_server.rs     # gRPC service implementations
+│   ├── controller/        # Database CRUD operations
+│   ├── repository/        # Repository traits and implementations
+│   └── service/           # Service layer implementations
 ├── build.rs               # Builds protobuf files
 └── Cargo.toml
 ```
@@ -27,42 +28,9 @@ A simple task list application demonstrating:
 cargo run
 ```
 
-This starts two servers:
-- **gRPC server**: `127.0.0.1:50051`
-- **REST server**: `127.0.0.1:3000`
+This starts the gRPC server on `[::]:50051` (accessible via `localhost:50051`).
 
 The SQLite database file `tasks.db` will be created in the project root.
-
-## REST API Examples
-
-### Create a task
-```bash
-curl -X POST http://127.0.0.1:3000/tasks \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Learn Rust", "description": "Study tonic, sqlx, and axum"}'
-```
-
-### List all tasks
-```bash
-curl http://127.0.0.1:3000/tasks
-```
-
-### Get a specific task
-```bash
-curl http://127.0.0.1:3000/tasks/1
-```
-
-### Update a task
-```bash
-curl -X PUT http://127.0.0.1:3000/tasks/1 \
-  -H "Content-Type: application/json" \
-  -d '{"completed": true}'
-```
-
-### Delete a task
-```bash
-curl -X DELETE http://127.0.0.1:3000/tasks/1
-```
 
 ## gRPC Examples
 
@@ -84,37 +52,71 @@ For command-line testing, use grpcurl:
 
 ### List services
 ```bash
-grpcurl -plaintext 127.0.0.1:50051 list
+grpcurl -plaintext localhost:50051 list
 ```
 
-### Create a task
+### Task Operations
+
+#### Create a task
 ```bash
 grpcurl -plaintext -d '{"title": "Learn gRPC", "description": "Master tonic"}' \
-  127.0.0.1:50051 task.TaskService/CreateTask
+  localhost:50051 task.TaskService/CreateTask
 ```
 
-### List all tasks
+#### List all tasks
 ```bash
 grpcurl -plaintext -d '{}' \
-  127.0.0.1:50051 task.TaskService/ListTasks
+  localhost:50051 task.TaskService/ListTasks
 ```
 
-### Get a task
+#### Get a task
 ```bash
 grpcurl -plaintext -d '{"id": 1}' \
-  127.0.0.1:50051 task.TaskService/GetTask
+  localhost:50051 task.TaskService/GetTask
 ```
 
-### Update a task
+#### Update a task
 ```bash
 grpcurl -plaintext -d '{"id": 1, "completed": true}' \
-  127.0.0.1:50051 task.TaskService/UpdateTask
+  localhost:50051 task.TaskService/UpdateTask
 ```
 
-### Delete a task
+#### Delete a task
 ```bash
 grpcurl -plaintext -d '{"id": 1}' \
-  127.0.0.1:50051 task.TaskService/DeleteTask
+  localhost:50051 task.TaskService/DeleteTask
+```
+
+### User Operations
+
+#### Create a user
+```bash
+grpcurl -plaintext -d '{"name": "John Doe", "email": "john@example.com"}' \
+  localhost:50051 user.UserService/CreateUser
+```
+
+#### List all users
+```bash
+grpcurl -plaintext -d '{}' \
+  localhost:50051 user.UserService/ListUsers
+```
+
+#### Get a user
+```bash
+grpcurl -plaintext -d '{"id": 1}' \
+  localhost:50051 user.UserService/GetUser
+```
+
+#### Update a user
+```bash
+grpcurl -plaintext -d '{"id": 1, "name": "Jane Doe"}' \
+  localhost:50051 user.UserService/UpdateUser
+```
+
+#### Delete a user
+```bash
+grpcurl -plaintext -d '{"id": 1}' \
+  localhost:50051 user.UserService/DeleteUser
 ```
 
 ## Key Features
@@ -126,31 +128,30 @@ grpcurl -plaintext -d '{"id": 1}' \
 - Auto-creates database schema on startup
 
 ### gRPC with tonic
-- Protocol buffer definitions in `proto/todo.proto`
-- Full CRUD operations
+- Protocol buffer definitions in `proto/`
+- Full CRUD operations for Tasks and Users
 - Type-safe client/server code generation
-- Async streaming support (not used in this simple example)
+- gRPC reflection enabled for introspection
 
-### REST API with axum
-- JSON request/response handling
-- Path parameters for resource IDs
-- Proper HTTP status codes
-- Error handling with custom error types
+### Architecture
+- **Repository pattern** for data access abstraction
+- **Controller layer** for database operations
+- **Service layer** for business logic
+- Layered design with clear separation of concerns
 
-## Learning Points
+## Running Tests
 
-1. **Database Layer** (`src/db.rs`): Pure database operations with sqlx
-2. **gRPC Service** (`src/grpc_server.rs`): Implements the protobuf service definition
-3. **REST API** (`src/rest_server.rs`): HTTP handlers using axum extractors
-4. **Main** (`src/main.rs`): Runs both servers concurrently using tokio
+```bash
+cargo test
+```
 
-Both servers share the same SQLite database, so tasks created via REST are visible via gRPC and vice versa.
+This runs unit tests and gRPC integration tests.
 
 ## Dependencies
 
 - `tonic` & `prost`: gRPC implementation
 - `sqlx`: Async SQL toolkit
-- `axum`: Web framework
 - `tokio`: Async runtime
 - `serde` & `serde_json`: JSON serialization
 - `anyhow`: Error handling
+- `tonic-reflection`: gRPC reflection support

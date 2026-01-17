@@ -4,7 +4,7 @@ This document describes the architecture, components, and data flow of the rust-
 
 ## Overview
 
-The application implements a dual-interface system with both gRPC and REST APIs sharing a common SQLite database. The architecture follows a layered approach with clear separation of concerns, supporting multiple entities (Tasks and Users).
+The application implements a gRPC API with a SQLite database backend. The architecture follows a layered approach with clear separation of concerns, supporting multiple entities (Tasks and Users).
 
 ## Project Structure
 
@@ -20,7 +20,6 @@ src/
 │   └── user.rs         # UserRepository trait and SqliteUserRepository
 ├── db.rs               # Database models and initialization
 ├── grpc_server.rs      # gRPC service implementations
-├── rest_server.rs      # REST API handlers and routes
 ├── lib.rs              # Module exports
 └── main.rs             # Application entry point
 
@@ -30,49 +29,46 @@ proto/
 
 tests/
 ├── common/mod.rs       # Shared test utilities
-├── grpc_integration.rs # gRPC integration tests
-└── rest_integration.rs # REST integration tests
+└── grpc_integration.rs # gRPC integration tests
 ```
 
 ## System Architecture
 
 ```
-┌─────────────┐     ┌─────────────┐
-│   gRPC      │     │    REST     │
-│   Client    │     │   Client    │
-└──────┬──────┘     └──────┬──────┘
-       │                   │
-       │ :50051            │ :3000
-       │                   │
-┌──────▼───────────────────▼──────┐
+┌─────────────┐
+│   gRPC      │
+│   Client    │
+└──────┬──────┘
+       │
+       │ :50051
+       │
+┌──────▼──────────────────────────┐
 │         Server Layer            │
-│  ┌────────────┐  ┌────────────┐ │
-│  │   gRPC     │  │    REST    │ │
-│  │   Server   │  │   Server   │ │
-│  └─────┬──────┘  └─────┬──────┘ │
-│        │               │        │
-│        └───────┬───────┘        │
-│                │                │
-│       ┌────────▼────────┐       │
-│       │ Repository Layer│       │
-│       │ (Task & User)   │       │
-│       └────────┬────────┘       │
-│                │                │
-│       ┌────────▼────────┐       │
-│       │ Controller Layer│       │
-│       │ (Task & User)   │       │
-│       └────────┬────────┘       │
-│                │                │
-│       ┌────────▼────────┐       │
-│       │  Database Layer │       │
-│       │    (db.rs)      │       │
-│       └────────┬────────┘       │
-└────────────────┼────────────────┘
-                 │
-         ┌───────▼────────┐
-         │ SQLite Database│
-         │   tasks.db     │
-         └────────────────┘
+│       ┌────────────┐            │
+│       │   gRPC     │            │
+│       │   Server   │            │
+│       └─────┬──────┘            │
+│             │                   │
+│    ┌────────▼────────┐          │
+│    │ Repository Layer│          │
+│    │ (Task & User)   │          │
+│    └────────┬────────┘          │
+│             │                   │
+│    ┌────────▼────────┐          │
+│    │ Controller Layer│          │
+│    │ (Task & User)   │          │
+│    └────────┬────────┘          │
+│             │                   │
+│    ┌────────▼────────┐          │
+│    │  Database Layer │          │
+│    │    (db.rs)      │          │
+│    └────────┬────────┘          │
+└─────────────┼───────────────────┘
+              │
+      ┌───────▼────────┐
+      │ SQLite Database│
+      │   tasks.db     │
+      └────────────────┘
 ```
 
 ## Core Components
@@ -207,71 +203,30 @@ pub trait UserRepository: Send + Sync {
 - `Status::internal` - Database failures
 - `Status::not_found` - Missing resources
 
-### 5. REST Server (`src/rest_server.rs`)
+### 5. Application Entry Point (`src/main.rs`)
 
-**Responsibility**: HTTP/JSON API implementation
-
-**Task Routes**:
-```
-POST   /tasks       - Create new task
-GET    /tasks       - List all tasks
-GET    /tasks/:id   - Get specific task
-PUT    /tasks/:id   - Update task
-DELETE /tasks/:id   - Delete task
-```
-
-**User Routes**:
-```
-POST   /users       - Create new user
-GET    /users       - List all users
-GET    /users/:id   - Get specific user
-PUT    /users/:id   - Update user
-DELETE /users/:id   - Delete user
-```
-
-**Key Features**:
-- Axum-based web framework
-- JSON request/response serialization via Serde
-- State management via `AppState` with both repositories
-- Path parameter extraction for resource IDs
-- Proper HTTP status codes (200, 204, 404, 500)
-
-**Request/Response Models**:
-- Separate DTOs for requests and responses
-- Optional fields for partial updates
-
-**Error Handling**:
-- Custom `AppError` enum for clean error responses
-- Automatic conversion from sqlx::Error and anyhow::Error
-- HTTP 404 for not found, 500 for database errors
-
-### 6. Application Entry Point (`src/main.rs`)
-
-**Responsibility**: Server orchestration and initialization
+**Responsibility**: Server initialization and startup
 
 **Key Operations**:
 1. Initialize SQLite database pool
 2. Create repositories for tasks and users
-3. Clone repositories for both servers
-4. Spawn gRPC server on `[::]:50051` with both services
-5. Spawn REST server on `[::]:3000` with all routes
-6. Run both servers concurrently via tokio
+3. Start gRPC server on `[::]:50051` with both services
+4. Run server with gRPC reflection enabled
 
 **Key Features**:
 - Async runtime via Tokio
-- Concurrent server execution with `tokio::spawn`
 - Graceful startup logging
 - IPv6 binding with IPv4 compatibility
 - gRPC reflection for both services
 
 ## Data Flow
 
-### Creating a Task (REST Example)
+### Creating a Task (gRPC Example)
 
 ```
-1. HTTP POST /tasks with JSON body
+1. gRPC CreateTask request
    ↓
-2. rest_server::create_task handler
+2. TaskServiceImpl::create_task handler
    ↓
 3. task_repository.create(title, description)
    ↓
@@ -279,9 +234,9 @@ DELETE /users/:id   - Delete user
    ↓
 5. TaskModel returned
    ↓
-6. Convert to TaskResponse
+6. Convert to Proto Task
    ↓
-7. JSON response to client
+7. Proto response to client
 ```
 
 ### Creating a User (gRPC Example)
@@ -307,7 +262,6 @@ DELETE /users/:id   - Delete user
 ### Core Frameworks
 - **tonic** (0.12) - gRPC server implementation
 - **prost** (0.13) - Protocol Buffer serialization
-- **axum** (0.7) - Web framework for REST API
 - **sqlx** (0.8) - Async SQL toolkit with compile-time checking
 - **tokio** (1.x) - Async runtime
 
@@ -326,7 +280,6 @@ Each layer includes comprehensive unit tests:
 
 ### Integration Tests
 - **gRPC tests** (`tests/grpc_integration.rs`) - Full gRPC service testing with real server
-- **REST tests** (`tests/rest_integration.rs`) - HTTP endpoint testing via tower ServiceExt
 
 ### Test Utilities
 Common test setup in `tests/common/mod.rs`:
@@ -347,9 +300,8 @@ To add a new entity (e.g., `Project`):
 5. **Repository**: Create `src/repository/project.rs` with trait and implementation
 6. **Update Exports**: Add to `controller/mod.rs` and `repository/mod.rs`
 7. **gRPC Server**: Add `ProjectServiceImpl` to `src/grpc_server.rs`
-8. **REST Server**: Add handlers and routes to `src/rest_server.rs`
-9. **Main**: Register new services in `src/main.rs`
-10. **Tests**: Add integration tests and update `tests/common/mod.rs`
+8. **Main**: Register new service in `src/main.rs`
+9. **Tests**: Add integration tests and update `tests/common/mod.rs`
 
 ## Security Considerations
 
@@ -374,7 +326,6 @@ The architecture supports easy extension:
 1. **Additional Entities**: Follow the "Adding a New Entity" guide above
 2. **Business Logic**: Add validation in handlers before repository calls
 3. **Caching**: Insert cache layer between handlers and repositories
-4. **WebSocket Support**: Add axum websocket routes for real-time updates
-5. **Authentication**: Add middleware to both server implementations
-6. **Database Migration**: Integrate sqlx-cli for versioned migrations
-7. **Alternative Databases**: Implement new repository types (e.g., PostgresTaskRepository)
+4. **Authentication**: Add middleware/interceptors to the gRPC server
+5. **Database Migration**: Integrate sqlx-cli for versioned migrations
+6. **Alternative Databases**: Implement new repository types (e.g., PostgresTaskRepository)

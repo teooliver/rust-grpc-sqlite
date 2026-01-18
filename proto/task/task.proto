@@ -3,11 +3,11 @@ syntax = "proto3";
 package task;
 
 service TaskService {
-  rpc CreateTask (CreateTaskRequest) returns (Task);
-  rpc GetTask (GetTaskRequest) returns (Task);
-  rpc ListTasks (ListTasksRequest) returns (ListTasksResponse);
-  rpc UpdateTask (UpdateTaskRequest) returns (Task);
-  rpc DeleteTask (DeleteTaskRequest) returns (DeleteTaskResponse);
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
 }
 
 message Task {
@@ -22,8 +22,16 @@ message CreateTaskRequest {
   string description = 2;
 }
 
+message CreateTaskResponse {
+  Task task = 1;
+}
+
 message GetTaskRequest {
   int64 id = 1;
+}
+
+message GetTaskResponse {
+  Task task = 1;
 }
 
 message ListTasksRequest {}
@@ -37,6 +45,10 @@ message UpdateTaskRequest {
   optional string title = 2;
   optional string description = 3;
   optional bool completed = 4;
+}
+
+message UpdateTaskResponse {
+  Task task = 1;
 }
 
 message DeleteTaskRequest {

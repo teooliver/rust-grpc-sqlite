@@ -4,8 +4,9 @@ use tonic::{Request, Response, Status};
 use crate::db;
 use crate::grpc_server::task::{
     task_service_server::{TaskService, TaskServiceServer},
-    CreateTaskRequest, DeleteTaskRequest, DeleteTaskResponse, GetTaskRequest, ListTasksRequest,
-    ListTasksResponse, Task, UpdateTaskRequest,
+    CreateTaskRequest, CreateTaskResponse, DeleteTaskRequest, DeleteTaskResponse, GetTaskRequest,
+    GetTaskResponse, ListTasksRequest, ListTasksResponse, Task, UpdateTaskRequest,
+    UpdateTaskResponse,
 };
 use crate::repository::TaskRepository;
 
@@ -37,7 +38,7 @@ impl TaskService for TaskServiceImpl {
     async fn create_task(
         &self,
         request: Request<CreateTaskRequest>,
-    ) -> Result<Response<Task>, Status> {
+    ) -> Result<Response<CreateTaskResponse>, Status> {
         let req = request.into_inner();
 
         let task = self
@@ -46,10 +47,15 @@ impl TaskService for TaskServiceImpl {
             .await
             .map_err(|e| Status::internal(format!("Failed to create task: {}", e)))?;
 
-        Ok(Response::new(model_to_proto(task)))
+        Ok(Response::new(CreateTaskResponse {
+            task: Some(model_to_proto(task)),
+        }))
     }
 
-    async fn get_task(&self, request: Request<GetTaskRequest>) -> Result<Response<Task>, Status> {
+    async fn get_task(
+        &self,
+        request: Request<GetTaskRequest>,
+    ) -> Result<Response<GetTaskResponse>, Status> {
         let req = request.into_inner();
 
         let task = self
@@ -58,7 +64,9 @@ impl TaskService for TaskServiceImpl {
             .await
             .map_err(|e| Status::not_found(format!("Task not found: {}", e)))?;
 
-        Ok(Response::new(model_to_proto(task)))
+        Ok(Response::new(GetTaskResponse {
+            task: Some(model_to_proto(task)),
+        }))
     }
 
     async fn list_tasks(
@@ -79,7 +87,7 @@ impl TaskService for TaskServiceImpl {
     async fn update_task(
         &self,
         request: Request<UpdateTaskRequest>,
-    ) -> Result<Response<Task>, Status> {
+    ) -> Result<Response<UpdateTaskResponse>, Status> {
         let req = request.into_inner();
 
         let task = self
@@ -93,7 +101,9 @@ impl TaskService for TaskServiceImpl {
             .await
             .map_err(|e| Status::internal(format!("Failed to update task: {}", e)))?;
 
-        Ok(Response::new(model_to_proto(task)))
+        Ok(Response::new(UpdateTaskResponse {
+            task: Some(model_to_proto(task)),
+        }))
     }
 
     async fn delete_task(

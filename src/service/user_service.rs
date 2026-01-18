@@ -4,8 +4,9 @@ use tonic::{Request, Response, Status};
 use crate::db;
 use crate::grpc_server::user::{
     user_service_server::{UserService, UserServiceServer},
-    CreateUserRequest, DeleteUserRequest, DeleteUserResponse, GetUserRequest, ListUsersRequest,
-    ListUsersResponse, UpdateUserRequest, User,
+    CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse, GetUserRequest,
+    GetUserResponse, ListUsersRequest, ListUsersResponse, UpdateUserRequest, UpdateUserResponse,
+    User,
 };
 use crate::repository::UserRepository;
 
@@ -36,7 +37,7 @@ impl UserService for UserServiceImpl {
     async fn create_user(
         &self,
         request: Request<CreateUserRequest>,
-    ) -> Result<Response<User>, Status> {
+    ) -> Result<Response<CreateUserResponse>, Status> {
         let req = request.into_inner();
 
         let user = self
@@ -45,10 +46,15 @@ impl UserService for UserServiceImpl {
             .await
             .map_err(|e| Status::internal(format!("Failed to create user: {}", e)))?;
 
-        Ok(Response::new(user_model_to_proto(user)))
+        Ok(Response::new(CreateUserResponse {
+            user: Some(user_model_to_proto(user)),
+        }))
     }
 
-    async fn get_user(&self, request: Request<GetUserRequest>) -> Result<Response<User>, Status> {
+    async fn get_user(
+        &self,
+        request: Request<GetUserRequest>,
+    ) -> Result<Response<GetUserResponse>, Status> {
         let req = request.into_inner();
 
         let user = self
@@ -57,7 +63,9 @@ impl UserService for UserServiceImpl {
             .await
             .map_err(|e| Status::not_found(format!("User not found: {}", e)))?;
 
-        Ok(Response::new(user_model_to_proto(user)))
+        Ok(Response::new(GetUserResponse {
+            user: Some(user_model_to_proto(user)),
+        }))
     }
 
     async fn list_users(
@@ -78,7 +86,7 @@ impl UserService for UserServiceImpl {
     async fn update_user(
         &self,
         request: Request<UpdateUserRequest>,
-    ) -> Result<Response<User>, Status> {
+    ) -> Result<Response<UpdateUserResponse>, Status> {
         let req = request.into_inner();
 
         let user = self
@@ -87,7 +95,9 @@ impl UserService for UserServiceImpl {
             .await
             .map_err(|e| Status::internal(format!("Failed to update user: {}", e)))?;
 
-        Ok(Response::new(user_model_to_proto(user)))
+        Ok(Response::new(UpdateUserResponse {
+            user: Some(user_model_to_proto(user)),
+        }))
     }
 
     async fn delete_user(

@@ -273,6 +273,8 @@ pub trait UserRepository: Send + Sync {
 
 ## Testing Strategy
 
+**Important**: Always run `cargo test` after making any changes to ensure all tests pass before considering the work complete.
+
 ### Unit Tests
 Each layer includes comprehensive unit tests:
 - **Controller tests** (`controller/task.rs`, `controller/user.rs`) - CRUD operations with in-memory SQLite

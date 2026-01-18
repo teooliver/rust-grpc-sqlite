@@ -74,7 +74,7 @@ async fn test_create_task_grpc() {
     });
 
     let response = client.create_task(request).await.unwrap();
-    let task = response.into_inner();
+    let task = response.into_inner().task.unwrap();
 
     assert_eq!(task.title, "Test Task");
     assert_eq!(task.description, "Test Description");
@@ -89,7 +89,7 @@ async fn test_get_task_grpc() {
     let request = tonic::Request::new(GetTaskRequest { id: 1 });
 
     let response = client.get_task(request).await.unwrap();
-    let task = response.into_inner();
+    let task = response.into_inner().task.unwrap();
 
     assert_eq!(task.id, 1);
     assert_eq!(task.title, "Test Task 1");
@@ -147,7 +147,7 @@ async fn test_update_task_grpc() {
     });
 
     let response = client.update_task(request).await.unwrap();
-    let task = response.into_inner();
+    let task = response.into_inner().task.unwrap();
 
     assert_eq!(task.id, 1);
     assert_eq!(task.title, "Updated Task");
@@ -167,7 +167,7 @@ async fn test_update_task_partial_grpc() {
     });
 
     let response = client.update_task(request).await.unwrap();
-    let task = response.into_inner();
+    let task = response.into_inner().task.unwrap();
 
     assert_eq!(task.id, 1);
     assert_eq!(task.title, "Test Task 1");
@@ -284,7 +284,7 @@ async fn test_create_user_grpc() {
     });
 
     let response = client.create_user(request).await.unwrap();
-    let user = response.into_inner();
+    let user = response.into_inner().user.unwrap();
 
     assert_eq!(user.name, "John Doe");
     assert_eq!(user.email, "john@example.com");
@@ -298,7 +298,7 @@ async fn test_get_user_grpc() {
     let request = tonic::Request::new(GetUserRequest { id: 1 });
 
     let response = client.get_user(request).await.unwrap();
-    let user = response.into_inner();
+    let user = response.into_inner().user.unwrap();
 
     assert_eq!(user.id, 1);
     assert_eq!(user.name, "John Doe");
@@ -354,7 +354,7 @@ async fn test_update_user_grpc() {
     });
 
     let response = client.update_user(request).await.unwrap();
-    let user = response.into_inner();
+    let user = response.into_inner().user.unwrap();
 
     assert_eq!(user.id, 1);
     assert_eq!(user.name, "Updated Name");
@@ -372,7 +372,7 @@ async fn test_update_user_partial_grpc() {
     });
 
     let response = client.update_user(request).await.unwrap();
-    let user = response.into_inner();
+    let user = response.into_inner().user.unwrap();
 
     assert_eq!(user.id, 1);
     assert_eq!(user.name, "New Name");

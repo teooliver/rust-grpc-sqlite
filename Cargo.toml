@@ -15,7 +15,16 @@ path = "src/main.rs"
 # gRPC with tonic
 tonic = "0.12"
 tonic-reflection = "0.12"
+tonic-web = "0.12"
 prost = "0.13"
+
+# REST API with axum
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+
+# OpenAPI/Swagger
+utoipa = { version = "5", features = ["axum_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
 
 # Database with sqlx
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
